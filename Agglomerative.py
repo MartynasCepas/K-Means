@@ -7,7 +7,10 @@ from sklearn.preprocessing import StandardScaler, normalize
 from sklearn.metrics import silhouette_score
 import scipy.cluster.hierarchy as shc
 
-X = pd.read_csv('CreditCard.csv')
+X = pd.read_csv('./data/data.csv')
+
+X = X.drop(columns=['default.payment.next.month'])
+
 X = X.select_dtypes(include=np.number)
 
 # Uzpildo trukstamas reiksmes
@@ -23,11 +26,17 @@ X_normalized = normalize(X_scaled)
 # Konvertuoja numpy masyva i pandas dataframe
 X_normalized = pd.DataFrame(X_normalized)
 
+print("Normalized: ")
+print(X_normalized)
+
 # PCA implementavimas
 pca = PCA(n_components=2)
 X_principal = pca.fit_transform(X_normalized)
 X_principal = pd.DataFrame(X_principal)
 X_principal.columns = ['P1', 'P2']
+
+print("PCA: ")
+print(X_principal)
 
 # Dendogramos atvaizdavimas
 plt.figure(figsize =(8, 8))

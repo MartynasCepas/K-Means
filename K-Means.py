@@ -3,6 +3,13 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
+from sklearn import metrics
+from scipy.spatial.distance import cdist
+import scipy.cluster.hierarchy as shc
+from sklearn.preprocessing import StandardScaler, normalize
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -11,104 +18,138 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
     # create dataset
-    train_url = "http://s3.amazonaws.com/assets.datacamp.com/course/Kaggle/train.csv"
-    train = pd.read_csv(train_url)
-    test_url = "http://s3.amazonaws.com/assets.datacamp.com/course/Kaggle/test.csv"
-    test = pd.read_csv(test_url)
+    data = pd.read_csv('./data/data.csv')
 
+    data = data.drop(columns=['default.payment.next.month'])
 
-    # analize dataset
-    print("***** Train_Set *****")
-    print(train.head())
-    print("\n")
-    print("***** Test_Set *****")
-    print(test.head())
+    data.fillna(method='ffill', inplace=True)
 
-    print("***** Train_Set *****")
-    print(train.describe())
-    print("\n")
-    print("***** Test_Set *****")
-    print(test.describe())
+    # Duomenu standartizavimas
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(data)
 
-    print(train.columns.values)
+    # Duomenu normalizavimas
+    X_normalized = normalize(X_scaled)
 
-    # We need to deal with missing values due to K-Means not supporting it
+    # Konvertuoja numpy masyva i pandas dataframe
+    X_normalized = pd.DataFrame(X_normalized)
 
-    print("*****In the train set*****")
-    print(train.isna().sum())
-    print("\n")
-    print("*****In the test set*****")
-    print(test.isna().sum())
+    # PCA implementavimas
+    pca = PCA(n_components=2)
+    X_principal = pca.fit_transform(X_normalized)
+    X_principal = pd.DataFrame(X_principal)
+    X_principal.columns = ['P1', 'P2']
 
-    # replace empty values with Mean value
-    train.fillna(train.mean(), inplace=True)
-    test.fillna(test.mean(), inplace=True)
-
-    print("*****In the train set*****")
-    print(train.isna().sum())
-    print("\n")
-    print("*****In the test set*****")
-    print(test.isna().sum())
-
-    train[['Pclass', 'Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False)
-    train[["Sex", "Survived"]].groupby(['Sex'], as_index=False).mean().sort_values(by='Survived', ascending=False)
-    train[["SibSp", "Survived"]].groupby(['SibSp'], as_index=False).mean().sort_values(by='Survived', ascending=False)
-
-    grid = sns.FacetGrid(train, col='Survived', row='Pclass', size=2.2, aspect=1.6)
-    grid.map(plt.hist, 'Age', alpha=.5, bins=20)
-    grid.add_legend();
+    # Visualizing the data
+    plt.plot()
+    plt.xlim([-1, 1])
+    plt.ylim([-1, 1])
+    plt.title('Dataset')
+    plt.scatter(X_principal['P1'], X_principal['P2'])
     plt.show()
 
-    train.info()
+    # Dendogramos atvaizdavimas
+    plt.figure(figsize=(8, 8))
+    plt.title('Visualising the data')
+    Dendrogram = shc.dendrogram((shc.linkage(X_principal, method='ward')))
 
-    # remove useless data
-    train = train.drop(['Name', 'Ticket', 'Cabin', 'Embarked'], axis=1)
-    test = test.drop(['Name', 'Ticket', 'Cabin', 'Embarked'], axis=1)
+    kmeans1 = KMeans(n_clusters=2).fit(X_principal)
+    centroids = kmeans1.cluster_centers_
+    print(centroids)
 
-    # transform non-numeric data into numeric
-    labelEncoder = LabelEncoder()
-    labelEncoder.fit(train['Sex'])
-    labelEncoder.fit(test['Sex'])
-    train['Sex'] = labelEncoder.transform(train['Sex'])
-    test['Sex'] = labelEncoder.transform(test['Sex'])
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X_principal['P1'], X_principal['P2'],
+                c=kmeans1.fit_predict(X_principal),
+                cmap='rainbow')
+    plt.show()
 
-    train.info()
-    test.info()
+    kmeans2 = KMeans(n_clusters=3).fit(X_principal)
+    centroids = kmeans1.cluster_centers_
+    print(centroids)
 
-    # creating K-Means model
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X_principal['P1'], X_principal['P2'],
+                c=kmeans2.fit_predict(X_principal),
+                cmap='rainbow')
+    plt.show()
 
-    # create dataset without "survived"
-    X = np.array(train.drop(['Survived'], 1).astype(float))
-    y = np.array(train['Survived'])
-    train.info()
+    kmeans3 = KMeans(n_clusters=4).fit(X_principal)
+    centroids = kmeans1.cluster_centers_
+    print(centroids)
 
-    kmeans = KMeans(n_clusters=2)  # You want cluster the passenger records into 2: Survived or Not survived
-    kmeans.fit(X)
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X_principal['P1'], X_principal['P2'],
+                c=kmeans3.fit_predict(X_principal),
+                cmap='rainbow')
+    plt.show()
 
-    correct = 0
-    for i in range(len(X)):
-        predict_me = np.array(X[i].astype(float))
-        predict_me = predict_me.reshape(-1, len(predict_me))
-        prediction = kmeans.predict(predict_me)
-        if prediction[0] == y[i]:
-            correct += 1
+    kmeans4 = KMeans(n_clusters=5).fit(X_principal)
+    centroids = kmeans1.cluster_centers_
+    print(centroids)
 
-    print(correct / len(X))
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X_principal['P1'], X_principal['P2'],
+                c=kmeans4.fit_predict(X_principal),
+                cmap='rainbow')
+    plt.show()
 
-    # optimization of model
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(X)
-    kmeans.fit(X_scaled)
+    kmeans5 = KMeans(n_clusters=6).fit(X_principal)
+    centroids = kmeans1.cluster_centers_
+    print(centroids)
 
-    correct = 0
-    for i in range(len(X)):
-        predict_me = np.array(X[i].astype(float))
-        predict_me = predict_me.reshape(-1, len(predict_me))
-        prediction = kmeans.predict(predict_me)
-        if prediction[0] == y[i]:
-            correct += 1
+    plt.figure(figsize=(6, 6))
+    plt.scatter(X_principal['P1'], X_principal['P2'],
+                c=kmeans5.fit_predict(X_principal),
+                cmap='rainbow')
+    plt.show()
 
-    print(correct / len(X))
+    # Sudedame silueto koeficientu reiksmes i sarasa
+    silhouette_scores = []
+    silhouette_scores.append(
+        silhouette_score(X_principal, kmeans1.fit_predict(X_principal)))
+    silhouette_scores.append(
+        silhouette_score(X_principal, kmeans2.fit_predict(X_principal)))
+    silhouette_scores.append(
+        silhouette_score(X_principal, kmeans3.fit_predict(X_principal)))
+    silhouette_scores.append(
+        silhouette_score(X_principal, kmeans4.fit_predict(X_principal)))
+    silhouette_scores.append(
+        silhouette_score(X_principal, kmeans5.fit_predict(X_principal)))
 
+    print("Silhouette scores")
+    print(silhouette_scores)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    # Atvaizduojame silueto koeficientu reiksmiu stulpeline diagrama
+    k = [2, 3, 4, 5, 6]
+
+    plt.bar(k, silhouette_scores)
+    plt.xlabel('Number of clusters', fontsize=10)
+    plt.ylabel('S(i)', fontsize=10)
+    plt.show()
+
+    # Skaiciuojame Inertia
+
+    distortions = []
+    inertias = []
+    mapping1 = {}
+    mapping2 = {}
+
+    distortions.append(sum(np.min(cdist(X_principal, kmeans1.cluster_centers_,
+                                        'euclidean'), axis=1)) / X_principal.shape[0])
+    inertias.append(kmeans1.inertia_)
+    inertias.append(kmeans2.inertia_)
+    inertias.append(kmeans3.inertia_)
+    inertias.append(kmeans4.inertia_)
+    inertias.append(kmeans5.inertia_)
+
+    plt.plot(k, inertias, 'bx-')
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Inertia')
+    plt.title('The Elbow Method using Inertia')
+    plt.show()
+
+    # Visual
+
+    plt.scatter(X_principal['P1'], X_principal['P2'], c=kmeans1.labels_.astype(float), s=50, alpha=0.5)
+    plt.scatter(centroids[:, 0], centroids[:, 1], c='red', s=50)
+    plt.show()
